@@ -1,0 +1,176 @@
+---
+title: "peer_evaluation_1"
+author: "Victor"
+date: "January 13, 2017"
+output:
+   md_document:
+    variant: markdown_github
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+library(ggplot2)
+```
+
+## Peer Evaluation project 1
+
+This R markdown document contains the code and solutions for the peer evaluation project 1 of The Reproducible research course. 
+
+## Introduction
+
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the quantified self movement a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+## Loading and preprocessing the data
+
+We are going to want to download the data from the source and save a zip file in our working directory. The code below creates the directory, downloads and reads in the data to be analyzed.
+
+```{r , echo = TRUE}
+### SETTING THE WORK DIRECTORY
+# wkdir = "~\\"
+# subdir = "Github\\Reproducible-Research"
+# create directory if it doesn't exist yet
+# dir.create(file.path(wkdir, subdir))
+# setwd(file.path(wkdir, subdir))
+# getwd()
+#zip file download to director
+# url = "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+# download.file(url, destfile = "peer_review_data.zip")
+#unzip file
+# unzip("peer_review_data.zip")
+#read in the data
+activity = read.csv("activity.csv")
+activity$date = as.Date(activity$date)
+```
+
+## What is mean total number of steps taken per day?
+
+We are using the aggregate function to calculate the total number of steps per days
+
+```{r , echo = TRUE}
+#q1
+#1
+steps_tot = with(activity,aggregate(steps, by =list(date),sum,na.rm = TRUE))
+colnames(steps_tot) = c("Date","Total.Steps")
+```
+
+We are generating the histogram of the total number of steps taken each day
+
+```{r , echo = TRUE}
+#2
+hist(steps_tot$Total.Steps, xlab = "Total Steps", main = "Histogram of total steps data with NA")
+```
+
+we see that the mean number of steps is: `r mean(steps_tot$Total.Steps)` 
+```{r , echo = TRUE}
+#3
+mean(steps_tot$Total.Steps)
+```
+
+we see that the median number of steps is: `r median(steps_tot$Total.Steps)`
+```{r , echo = TRUE}
+#4
+median(steps_tot$Total.Steps)
+```
+
+## What is the average daily activity pattern
+
+We are going to generate a time series plot to view the average number of steps taken for each 5-minute intervals (x-axis) averaged across all the days (y-axis). We are using the aggregate function to calculate the average number of steps by 5-minute intervals
+
+```{r, echo = TRUE}
+#q2
+steps_intervals = with(activity,aggregate(steps, by =list(interval),mean,na.rm= TRUE))
+colnames(steps_intervals) = c("Interval","Average.Number.Steps")
+
+ggplot(steps_intervals,aes(x=Interval,y=Average.Number.Steps))+
+  geom_line()+
+  ggtitle("Average Number of steps by 5-minute intervals")+
+  ylab("Average Number of Steps")+
+  xlab("5-minute interval")+
+  theme_bw()
+
+```
+
+The maximum number of steps happens on the: `r steps_intervals[max(steps_intervals$Average.Number.Steps),"Interval"]`
+```{r, echo=TRUE}
+steps_intervals[max(steps_intervals$Average.Number.Steps),]
+```
+
+## Imputing missing values
+
+We see in the activity data there are some days/intervals that have missing values. The total number of missing values is `r length(activity[is.na(activity$steps),"steps"])`
+
+```{r, echo = TRUE}
+#q1
+length(activity[is.na(activity$steps),"steps"])
+```
+
+We are going to impute these missing values by using the mean for that 5-minute interval. We are doing so to reduce the bias introduces by the presence of missing values
+
+```{r, echo = TRUE}
+#q3
+steps_t = with(activity,aggregate(steps, by =list(interval),mean,na.rm= TRUE))
+colnames(steps_t) = c("interval","steps")
+activity_NA = activity
+
+for(i in 1:length(activity_NA[,1])){
+  if(is.na(activity_NA[i,"steps"])){
+    activity_NA[i,"steps"] = steps_t[steps_t$interval == activity_NA[i,"interval"],"steps"]
+  }
+}
+steps_tot_NA_imputed = with(activity_NA,aggregate(steps, by =list(date),sum))
+colnames(steps_tot_NA_imputed) = c("Date","Total.Steps")
+```
+
+We want to look at the new data and evaluate the effect of imputing the NA values. To do so we built a histogram of the total number of steps done per day. we also calculated the mean and median of the new data set. Mean: `r round(mean(steps_tot_NA_imputed$Total.Steps),2)` and Median: `r round(median(steps_tot_NA_imputed$Total.Steps),2) `
+
+```{r echo = TRUE}
+
+hist(steps_tot_NA_imputed$Total.Steps, xlab = "Total Steps", main = "Histogram of total steps data no NA")
+
+```
+```{r, echo = TRUE}
+mean(steps_tot_NA_imputed$Total.Steps)
+median(steps_tot_NA_imputed$Total.Steps)
+```
+
+We observe that both the mean and the median change between the two data sets. The median of the original data set: `r median(steps_tot$Total.Steps)`  and the median of the new data set: `r round(median(steps_tot_NA_imputed$Total.Steps),2) `. We see that the ,edian is increased by `r round(median(steps_tot_NA_imputed$Total.Steps) - median(steps_tot$Total.Steps),2)`. The mean of the original data set: `r mean(steps_tot$Total.Steps)`  and the mean of the new data set: `r round(mean(steps_tot_NA_imputed$Total.Steps),2) `. We see that the mean is increased by `r round(mean(steps_tot_NA_imputed$Total.Steps) - mean(steps_tot$Total.Steps),2)`.
+
+We also observe that the histograms have a different distribution. To better visualize the difference we can look at density curves.
+
+```{r, echo = TRUE}
+stepsperday = merge(steps_tot_NA_imputed,steps_tot, by = "Date")
+
+ggplot(stepsperday,aes(x=Total.Steps.y))+
+  geom_density()+
+  geom_density(aes(x=Total.Steps.x,color="Imputed"))+
+  ggtitle("Density plot NA imputted data set vs orignial data set")+
+  xlab("total steps")
+
+```
+
+## Difference in activity patterns between weekdays and weekends
+
+We want to see the difference in average steps taken for weekdays versus weekends. We need to create a new column that distinguishes wether the is a week day or a weekend day. We use the function weekdays() to do so.
+
+```{r,echo = TRUE}
+activity_NA$weekday = as.factor(ifelse(weekdays(activity_NA$date) %in% c("Saturday", "Sunday"),"weekend","weekday"))
+```
+
+We visualize a timeseries view of these averages over each 5 min intervals for both weekdays and weekends.
+
+```{r, echo = TRUE}
+steps_interval_weekday = with(activity_NA,aggregate(steps,by = list(interval,weekday),mean))
+colnames(steps_interval_weekday) = c("interval","weekday","steps")
+
+
+ggplot(steps_interval_weekday,aes(x=interval,y=steps))+
+  facet_wrap(~weekday,nrow=2,ncol=1)+
+  geom_line()+
+  ggtitle("Mean steps by 5min interval and weekday/weekend")+
+  ylab("steps")+
+  xlab("Interval")+
+  theme_bw()
+```
